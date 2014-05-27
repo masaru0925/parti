@@ -39,6 +39,8 @@ import ws.util.MessageJSONCoder;
 //)
 @ServerEndpoint(
 		// @PathParamを使う
+		// TODO: partiIDも付加してハンドリング
+		// TODO: partiIDも使って抽出するならPartiIDを非正規化して持たないとダメか
 		value = "/messageEndpoint/{access_user_account_id}", encoders = {MessageJSONCoder.class}, decoders = {MessageJSONCoder.class}
 )
 @Stateless // <ーこれがないとCDIが働かない！！
