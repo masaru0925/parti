@@ -83,7 +83,7 @@ public class MessageEndpoint {
 						Future future = peer.getAsyncRemote().sendObject(message);
 						try{
 							if(null==future.get()){
-								messageAccessFacade.recordAccess(message, peers.get(peer));
+										recordAccess(message, MessageEndpoint.peers.get(peer));
 							}
 						}catch(ExecutionException ee){
 								peers.remove(peer);
@@ -121,7 +121,7 @@ public class MessageEndpoint {
 						Future future = peer.getAsyncRemote().sendObject(msg);
 						try{
 							if(null==future.get()){
-								messageAccessFacade.recordAccess(msg, peers.get(peer));
+										recordAccess(msg, MessageEndpoint.peers.get(peer));
 							}
 						}catch(ExecutionException ee){
 								peers.remove(peer);
@@ -137,5 +137,22 @@ public class MessageEndpoint {
 						.append(peer.getId())
 						.toString());
 				peers.remove(peer);
+		}
+
+
+		/**
+		 * 同じ処理を2回別々に実施するのでとりあえずメソッド化
+		 * INSERTするだけの簡単な処理なのでわざわざFacadeに移すようなものでもない。
+		 * @param message
+		 * @param userId 
+		 */
+		public void recordAccess(Message message, Integer userId) {
+				MessageAccess messageAccess = new MessageAccess();
+
+				messageAccess.setAccessUserAccountId(new UserAccount(userId));
+				messageAccess.setMessageId(message);
+
+				messageAccessFacade.create(messageAccess);
+				messageAccessFacade.flush();
 		}
 }
