@@ -5,14 +5,10 @@
  */
 package ejb;
 
-import entity.Message;
 import entity.MessageAccess;
-import entity.UserAccount;
-import java.util.List;
 import javax.ejb.Stateless;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
 
 /**
  *
@@ -33,12 +29,4 @@ public class MessageAccessFacade extends AbstractFacade<MessageAccess> {
 				super(MessageAccess.class);
 		}
 
-		public void recordAccess(Message message, Integer userId){
-						MessageAccess messageAccess;
-						messageAccess = new MessageAccess();
-						messageAccess.setAccessUserAccountId(new UserAccount(userId));
-						messageAccess.setMessageId(message);
-						create(messageAccess);
-						flush();
-		}
 }
