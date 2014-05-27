@@ -15,6 +15,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
@@ -37,10 +39,8 @@ import ws.util.MessageJSONCoder;
 //)
 @ServerEndpoint(
 		// @PathParamを使う
-		value="/messageEndpoint/{access_user_account_id}"
-		,encoders={MessageJSONCoder.class}
-		,decoders={MessageJSONCoder.class}
-)  	
+		value = "/messageEndpoint/{access_user_account_id}", encoders = {MessageJSONCoder.class}, decoders = {MessageJSONCoder.class}
+)
 @Stateless // <ーこれがないとCDIが働かない！！
 // See
 //	http://stackoverflow.com/questions/20872300/java-ee-7-how-to-inject-an-ejb-into-a-websocket-serverendpoint 
@@ -50,10 +50,6 @@ public class MessageEndpoint {
 		MessageFacade messageFacade;
 		@EJB
 		MessageAccessFacade messageAccessFacade;
-//		@EJB
-//		UserAccountFacade userAccountFacade;
-//		@EJB
-//		PartiFacade partiFacade;
 
 		private static final String PATH_PARAM_KEY = "access_user_account_id";
 
@@ -61,7 +57,7 @@ public class MessageEndpoint {
 		private static final Logger logger = Logger.getLogger("MessageEndpoint");
 
 		@OnMessage
-		public String onMessage(@PathParam(PATH_PARAM_KEY) Integer postUserAccountId, Message message) {
+		public String onMessage(@PathParam(PATH_PARAM_KEY) Integer postUserAccountId, Message message) throws ExecutionException, InterruptedException{
 				logger.log(Level.INFO, new StringBuilder()
 						.append("[onMessage] from userAccount=")
 						.append(postUserAccountId)
@@ -77,33 +73,26 @@ public class MessageEndpoint {
 						.append(json)
 						.toString());
 				for (Session peer : peers.keySet()) {
-						messageAccessFacade.recordAccess(message, peers.get(peer));
-//						MessageAccess messageAccess;
-//						messageAccess = new MessageAccess();
-//						messageAccess.setAccessUserAccountId(new UserAccount(peers.get(peer)));
-//						messageAccess.setMessageId(message);
-//						messageAccessFacade.create(messageAccess);
-//						messageAccessFacade.flush();
 						logger.log(Level.INFO, new StringBuilder()
 								.append("   --")
 								.append(peer.getId())
 								.toString());
-						peer.getAsyncRemote().sendObject(message);
+						//peer.getAsyncRemote().sendObject(message);
+						Future future = peer.getAsyncRemote().sendObject(message);
+						try{
+							if(null==future.get()){
+								messageAccessFacade.recordAccess(message, peers.get(peer));
+							}
+						}catch(ExecutionException ee){
+								peers.remove(peer);
+								throw ee;
+						}
 				}
 				return null;
 		}
 
-		private void recordAccess(Message message, Integer userId){
-						MessageAccess messageAccess;
-						messageAccess = new MessageAccess();
-						messageAccess.setAccessUserAccountId(new UserAccount(userId));
-						messageAccess.setMessageId(message);
-						messageAccessFacade.create(messageAccess);
-						messageAccessFacade.flush();
-		}
-
 		@OnOpen
-		public void onOpen(@PathParam(PATH_PARAM_KEY) Integer accessUserAccountId, Session peer) throws EncodeException, IOException{
+		public void onOpen(@PathParam(PATH_PARAM_KEY) Integer accessUserAccountId, Session peer) throws EncodeException, IOException, ExecutionException, InterruptedException {
 				logger.log(Level.INFO, new StringBuilder()
 						.append("open : userId=")
 						.append(accessUserAccountId)
@@ -114,24 +103,28 @@ public class MessageEndpoint {
 				peer.getAsyncRemote().sendObject("{greeting: 'hello'}");
 
 				List<Message> unaccessedMessages
-						= messageAccessFacade.findUnaccessedMessages(accessUserAccountId);
-				logger.log(Level.INFO, new StringBuilder()
-						.append("[追加配信] to ")
-						.append(accessUserAccountId)
-						.append(" .... ")
-						.toString());
-				for(Message msg: unaccessedMessages){
+						= messageFacade.findNotAccessedMessages(accessUserAccountId);
+				if (!unaccessedMessages.isEmpty()) {
+						logger.log(Level.INFO, new StringBuilder()
+								.append("[追加配信] to ")
+								.append(accessUserAccountId)
+								.append(" .... ")
+								.toString());
+				}
+				for (Message msg : unaccessedMessages) {
 						logger.log(Level.INFO, new StringBuilder()
 								.append("     ->")
 								.append(msg.getId())
 								.toString());
-						//peer.getAsyncRemote().sendObject(new MessageDTO(msg));
-
-						//  How To Solve JSON infinite recursion Stackoverflow
-						//  see http://goo.gl/jFzCWS
-						peer.getAsyncRemote().sendObject(msg);
-						messageAccessFacade.recordAccess(msg, peers.get(peer));
-						//peer.getBasicRemote().sendObject(new MessageDTO(msg));
+						Future future = peer.getAsyncRemote().sendObject(msg);
+						try{
+							if(null==future.get()){
+								messageAccessFacade.recordAccess(msg, peers.get(peer));
+							}
+						}catch(ExecutionException ee){
+								peers.remove(peer);
+								throw ee;
+						}
 				}
 		}
 

@@ -38,6 +38,8 @@ import javax.xml.bind.annotation.XmlTransient;
 @Table(name = "MESSAGE")
 @XmlRootElement
 @NamedQueries({
+/**@code-modify*/	@NamedQuery(name="findNotAccessedMessages", query=" SELECT DISTINCT ma.messageId FROM MessageAccess ma WHERE ma.messageId NOT IN ( SELECT ma.messageId FROM MessageAccess ma WHERE ma.accessUserAccountId.id = :accessUserAccountId) "),
+/**@code-modify*/
 		@NamedQuery(name = "Message.findAll", query = "SELECT m FROM Message m"),
 		@NamedQuery(name = "Message.findByAddedAt", query = "SELECT m FROM Message m WHERE m.addedAt = :addedAt"),
 		@NamedQuery(name = "Message.findByDisabledAt", query = "SELECT m FROM Message m WHERE m.disabledAt = :disabledAt"),
@@ -45,6 +47,10 @@ import javax.xml.bind.annotation.XmlTransient;
 		@NamedQuery(name = "Message.findById", query = "SELECT m FROM Message m WHERE m.id = :id"),
 		@NamedQuery(name = "Message.findByBody", query = "SELECT m FROM Message m WHERE m.body = :body")})
 public class Message implements Serializable {
+/**@code-modify*/public static final String QUERY_findNotAccessedMessages = "findNotAccessedMessages";
+/**@code-modify*/
+/**@code-modify*/public static final String PARAM_findNotAccessedMessages_accessUserAccountId = "accessUserAccountId";
+/**@code-modify*/
 		private static final long serialVersionUID = 1L;
 		@Column(name = "ADDED_AT")
         @Temporal(TemporalType.DATE)
@@ -64,15 +70,15 @@ public class Message implements Serializable {
         @Column(name = "BODY")
 		private String body;
 		@JoinColumn(name = "PARTY_ID", referencedColumnName = "ID")
+/**@code-modify*/@JsonBackReference
         @ManyToOne(optional = false)
-		@JsonBackReference
 		private Parti partyId;
 		@JoinColumn(name = "POST_USER_ACCOUNT_ID", referencedColumnName = "ID")
+/**@code-modify*/@JsonBackReference
         @ManyToOne(optional = false)
-		@JsonBackReference
 		private UserAccount postUserAccountId;
+/**@code-modify*/@JsonManagedReference
 		@OneToMany(cascade = CascadeType.ALL, mappedBy = "messageId")
-		@JsonManagedReference
 		private Collection<MessageAccess> messageAccessCollection;
 
 		public Message() {
