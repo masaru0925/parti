@@ -24,7 +24,6 @@ public class MessageAccessFacade extends AbstractFacade<MessageAccess> {
 		@PersistenceContext(unitName = "parti_parti_war_1.0-SNAPSHOTPU")
 		private EntityManager em;
 		// TODO: soon: 外出しファイルから。
-		// TODO: soon: NativeQueryのNamedQueryでもパフォーマンスが良いのか確認
 		public static final String QUERYNAME_NOT_ACCESSED_MESSAGE = "JPQL_NOT_ACCESSED_MESSAGE";
 //private static final String JPQL_NOT_ACCESSED_MESSAGE = "select distinct ma.messageId from MessageAccess ma where ma.accessUserAccountId.id <> :accessUserAccountId";
 		//private static final String JPQL_NOT_ACCESSED_MESSAGE = " SELECT DISTINCT ma.messageId FROM MessageAccess ma WHERE NOT EXISTS (SELECT u FROM ma.accessUserAccountId u WHERE u.id = :accessUserAccountId)";
