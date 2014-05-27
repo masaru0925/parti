@@ -83,7 +83,7 @@ public class MessageEndpoint {
 						Future future = peer.getAsyncRemote().sendObject(message);
 						try{
 							if(null==future.get()){
-										recordAccess(message, MessageEndpoint.peers.get(peer));
+										recordAccess(message, peers.get(peer));
 							}
 						}catch(ExecutionException ee){
 								peers.remove(peer);
@@ -121,7 +121,7 @@ public class MessageEndpoint {
 						Future future = peer.getAsyncRemote().sendObject(msg);
 						try{
 							if(null==future.get()){
-										recordAccess(msg, MessageEndpoint.peers.get(peer));
+										recordAccess(msg, peers.get(peer));
 							}
 						}catch(ExecutionException ee){
 								peers.remove(peer);
