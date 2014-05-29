@@ -5,6 +5,9 @@
  */
 package ws.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.jr.ob.JSON;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -42,19 +45,30 @@ public abstract class AbstractJSONCoder<T> implements Encoder.Text<T>, Decoder.T
 
 		@Override
 		public String encode(T pojo) throws EncodeException {
-				logger.log(Level.INFO, new StringBuilder()
-						.append(type)
-						.append("| [coder] encoding..")
-						.append(pojo)
-						.toString());
+				StringBuilder log = new StringBuilder()
+				.append(type)
+				.append("| [coder] encoding..")
+				.append(pojo)
+						;
 				String json = null;
 				try {
-//						ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
-						json = JSON.std.asString(pojo);
-						//json = ow.writeValueAsString(pojo);
+						ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+						// Jackson jr だと@JsonManagedReference, @JsonBackReferenceが効かない
+//						json = JSON.std.asString(pojo);
+						json = ow.writeValueAsString(pojo);
+						log.append(" DONE.");
 				} catch (IOException e) {
+						log.append(" **NG**.");
 						logger.log(Level.SEVERE, e.toString());
+						e.printStackTrace();
 						throw new EncodeException(json, e.getMessage());
+				}catch(Exception e){
+						log.append(" **NG**.");
+						logger.log(Level.SEVERE, e.toString());
+						e.printStackTrace();
+						throw new EncodeException(json, e.getMessage());
+				}finally{
+						logger.log(Level.INFO, log.toString());
 				}
 //				logger.log(Level.INFO, new StringBuilder()
 //						.append("[coder] done: ")
@@ -70,12 +84,13 @@ public abstract class AbstractJSONCoder<T> implements Encoder.Text<T>, Decoder.T
 //						.append(json)
 //						.toString());
 				try {
-						T message = JSON.std.beanFrom(type, json);
+						// TODO: こっちだけJacson Jrもどうか。でもJrの方が軽いから良いか
+						T pojo = JSON.std.beanFrom(type, json);
 //						logger.log(Level.INFO, new StringBuilder()
 //								.append("[coder] done ")
 //								.append(message)
 //								.toString());
-						return message;
+						return pojo;
 				} catch (IOException e) {
 						logger.log(Level.SEVERE, e.toString());
 						throw new DecodeException(json, e.getMessage());

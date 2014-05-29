@@ -86,7 +86,8 @@ public class MessageEndpoint {
 										recordAccess(message, peers.get(peer));
 							}
 						}catch(ExecutionException ee){
-								peers.remove(peer);
+								//peers.remove(peer);
+								ee.printStackTrace();
 								throw ee;
 						}
 				}
@@ -108,7 +109,10 @@ public class MessageEndpoint {
 						= messageFacade.findNotAccessedMessages(accessUserAccountId);
 				if (!unaccessedMessages.isEmpty()) {
 						logger.log(Level.INFO, new StringBuilder()
-								.append("[追加配信] to ")
+								.append("[追加配信] ")
+								.append(unaccessedMessages.size())
+								.append(" 件 ")
+								.append(" to ")
 								.append(accessUserAccountId)
 								.append(" .... ")
 								.toString());
@@ -124,7 +128,8 @@ public class MessageEndpoint {
 										recordAccess(msg, peers.get(peer));
 							}
 						}catch(ExecutionException ee){
-								peers.remove(peer);
+								//peers.remove(peer);
+								ee.printStackTrace();
 								throw ee;
 						}
 				}
