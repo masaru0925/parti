@@ -3,7 +3,6 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package ws.util;
 
 import entity.Message;
@@ -13,5 +12,5 @@ import entity.Message;
  * @author masaru
  */
 public class MessageJSONCoder extends AbstractJSONCoder<Message> {
-		
+
 }
