@@ -20,14 +20,23 @@ and open the template in the editor.
 		FROM
 				MessageAccess ma
 		WHERE
+				ma.messageId.partiId.id = :partiId
+				AND
 				ma.messageId NOT IN (
 					SELECT
 						ma.messageId
 					FROM
 						MessageAccess ma
 					WHERE
-						ma.accessUserAccountId.id = :accessUserAccountId)
+						ma.messageId.partiId.id = :partiId
+						AND
+						ma.accessUserAccountId.id = :accessUserAccountId
+			)
         </statement>
+        <parameters>
+            <name>partiId</name>
+            <type>Integer</type>
+        </parameters>
         <parameters>
             <name>accessUserAccountId</name>
             <type>Integer</type>

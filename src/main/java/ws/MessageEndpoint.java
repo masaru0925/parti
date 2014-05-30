@@ -41,7 +41,7 @@ import ws.util.MessageJSONCoder;
 		// @PathParamを使う
 		// TODO: partiIDも付加してハンドリング
 		// TODO: partiIDも使って抽出するならPartiIDを非正規化して持たないとダメか
-		value = "/messageEndpoint/{access_user_account_id}", encoders = {MessageJSONCoder.class}, decoders = {MessageJSONCoder.class}
+		value = "/messageEndpoint/{partiId}/{accessUserAccountId}", encoders = {MessageJSONCoder.class}, decoders = {MessageJSONCoder.class}
 )
 @Stateless // <ーこれがないとCDIが働かない！！
 // See
@@ -53,65 +53,95 @@ public class MessageEndpoint {
 	@EJB
 	MessageAccessFacade messageAccessFacade;
 
-	private static final String PATH_PARAM_KEY = "access_user_account_id";
+	private static final String PATHPARAM_partiId_KEY = "partiId";
+	private static final String PATHPARAM_accessUserAccountId_KEY = "accessUserAccountId";
 
-	private static Map<Session, Integer> peers = Collections.synchronizedMap(new HashMap<Session, Integer>());
+	private static Map<Integer, Map<Session, Integer>> partiPeers = Collections.synchronizedMap(new HashMap<Integer, Map<Session, Integer>>());
 	private static final Logger logger = Logger.getLogger("MessageEndpoint");
 
+	/**
+	 * 最後にアクセスしてきたクライアントのパスの値が渡ってくるのでメッセージに入っている値を使う
+	 * @param partiId
+	 * @param accessUserAccountId
+	 * @param message
+	 * @return
+	 * @throws ExecutionException
+	 * @throws InterruptedException 
+	 */
 	@OnMessage
-	public String onMessage(@PathParam(PATH_PARAM_KEY) Integer postUserAccountId, Message message) throws ExecutionException, InterruptedException {
+	public String onMessage(
+			@PathParam(PATHPARAM_partiId_KEY) Integer partiId
+			,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
+			,Message message
+	) throws ExecutionException, InterruptedException {
 		logger.log(Level.INFO, new StringBuilder()
-				.append("[onMessage] from userAccount=")
-				.append(postUserAccountId)
+				.append("[onMessage] PathParam(@)=")
+				.append(partiId)
+				.append("[onMessage] Message(@)=")
+				.append(message.getPartiId().getId())
+				.append("  | from PathParam(userAccount)=")
+				.append(accessUserAccountId)
+				.append("  | from Message(userAccount)=")
+				.append(message.getPostUserAccountId())
 				.append("  ... broadcasting [")
 				.append(message)
 				.append("] to ...")
 				.toString());
 		messageFacade.create(message);
 		messageFacade.flush();
-		String json = null;
-		logger.log(Level.INFO, new StringBuilder()
-				.append("[onMessage] created: ")
-				.append(json)
-				.toString());
-		for (Session peer : peers.keySet()) {
+		Map<Session, Integer> peers = partiPeers.get(message.getPartiId().getId());
+		for (Session peer : peers.keySet()){
 			logger.log(Level.INFO, new StringBuilder()
 					.append("   --")
 					.append(peer.getId())
 					.toString());
-			//peer.getAsyncRemote().sendObject(message);
-			Future future = peer.getAsyncRemote().sendObject(message);
-			try {
-				if (null == future.get()) {
+			peer.getAsyncRemote().sendObject(message);
+//			Future future = peer.getAsyncRemote().sendObject(message);
+//			try {
+//				if (null == future.get()) {
 					recordAccess(message, peers.get(peer));
-				}
-			} catch (ExecutionException ee) {
-				//peers.remove(peer);
-				ee.printStackTrace();
-				throw ee;
-			}
+//				}
+//			} catch (ExecutionException ee) {
+//				//peers.remove(peer);
+//				ee.printStackTrace();
+//				throw ee;
+//			}
 		}
 		return null;
 	}
 
 	@OnOpen
-	public void onOpen(@PathParam(PATH_PARAM_KEY) Integer accessUserAccountId, Session peer) throws EncodeException, IOException, ExecutionException, InterruptedException {
+	public void onOpen(
+			@PathParam(PATHPARAM_partiId_KEY) Integer partiId
+			,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
+			,Session peer
+	) throws EncodeException, IOException, ExecutionException, InterruptedException {
 		logger.log(Level.INFO, new StringBuilder()
-				.append("open : userId=")
+				.append("open : @=")
+				.append(partiId)
+				.append(" | userId=")
 				.append(accessUserAccountId)
 				.append(" | ")
 				.append(peer.getId())
 				.toString());
-		peers.put(peer, accessUserAccountId);
-		peer.getAsyncRemote().sendObject("{greeting: 'hello'}");
+		if(null == partiPeers.get(partiId)){
+			Map<Session, Integer> peerMap = Collections.synchronizedMap(new HashMap<Session, Integer>());
+			peerMap.put(peer, accessUserAccountId);
+			partiPeers.put(partiId, peerMap);
+		}else{
+			partiPeers.get(partiId).put(peer, accessUserAccountId);
+		}
+		peer.getAsyncRemote().sendObject("{partiId: '"+partiId+"', greeting: 'hello'}");
 
 		List<Message> unaccessedMessages
-				= messageFacade.findNotAccessedMessages(accessUserAccountId);
+				= messageFacade.findNotAccessedMessages(partiId, accessUserAccountId);
 		if (!unaccessedMessages.isEmpty()) {
 			logger.log(Level.INFO, new StringBuilder()
 					.append("[追加配信] ")
 					.append(unaccessedMessages.size())
 					.append(" 件 ")
+					.append(" @=")
+					.append(partiId)
 					.append(" to ")
 					.append(accessUserAccountId)
 					.append(" .... ")
@@ -125,7 +155,8 @@ public class MessageEndpoint {
 			Future future = peer.getAsyncRemote().sendObject(msg);
 			try {
 				if (null == future.get()) {
-					recordAccess(msg, peers.get(peer));
+					//recordAccess(msg, peers.get(peer));
+					recordAccess(msg, accessUserAccountId);
 				}
 			} catch (ExecutionException ee) {
 				//peers.remove(peer);
@@ -136,12 +167,15 @@ public class MessageEndpoint {
 	}
 
 	@OnClose
-	public void onClose(@PathParam(PATH_PARAM_KEY) Integer accessuserAccountId, Session peer) {
+	public void onClose(
+			@PathParam(PATHPARAM_partiId_KEY) Integer partiId
+			,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
+			,Session peer){
 		logger.log(Level.INFO, new StringBuilder()
 				.append(" CLOSED | ")
 				.append(peer.getId())
 				.toString());
-		peers.remove(peer);
+		partiPeers.get(partiId).remove(peer);
 	}
 
 	/**

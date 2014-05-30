@@ -25,17 +25,18 @@
 	});
 })(jQuery);
 var args = $.getParameter();
+var partiId = args.partiId;
 var userId = args.userId;
 
 
             var socket;
             $(document).ready(function(){
-					console.log('userID='+userId);
-                var host="ws://localhost:8080/parti/messageEndpoint/"+userId;
+					console.log('OPEN partiId='+partiId+" | userId="+userId);
+                var host="ws://localhost:8080/parti/messageEndpoint/"+partiId+"/"+userId;
                 socket = new WebSocket(host);
                 
                 socket.onmessage = function(message){
-					console.log("msg="+message);
+					console.log('ON partiId='+partiId+" | userId="+userId);
                     $('#log').append("<p>"+message.data + "</p>");
                 };
 
@@ -43,8 +44,8 @@ var userId = args.userId;
                     var text = $('#msg').val();
 					var json = {
 							id	: null,
-							partyId : {
-									id : 1
+							partiId : {
+									id : partiId
 							},
 							postUserAccountId : {
 									id : userId
@@ -52,7 +53,7 @@ var userId = args.userId;
 							body : text
 					};
                     //socket.send(text);
-					console.log("input:"+json);
+					console.log("input:"+json.body);
                     socket.send(JSON.stringify(json));
                     $('#msg').val('');
                 });
@@ -86,6 +87,7 @@ var userId = args.userId;
     </head>
     <body>
         <h1>WebSocketテスト</h1>
+		<h3><a href="/parti/" target="_blank">選択ページへ</a></h3>
         <div id="log">
         </div>
 		<label>メッセージ</label>
