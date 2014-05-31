@@ -201,6 +201,7 @@ public class MessageEndpoint {
 			@PathParam(PATHPARAM_partiId_KEY) Integer partiId
 			,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
 			,Session peer){
+		// TODO: PathParamから取得しているので間違っているのでは？
 		logger.log(Level.INFO, new StringBuilder()
 				.append(" CLOSED : ")
 				.append(" @=")
