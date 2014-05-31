@@ -60,27 +60,50 @@ public class MessageEndpoint {
 	private static final Logger logger = Logger.getLogger("MessageEndpoint");
 
 	/**
+	 * 
 	 * 最後にアクセスしてきたクライアントのパスの値が渡ってくるのでメッセージに入っている値を使う
 	 * @param partiId
 	 * @param accessUserAccountId
 	 * @param message
+	 * @param senderPeer
 	 * @return
 	 * @throws ExecutionException
 	 * @throws InterruptedException 
 	 */
 	@OnMessage
 	public String onMessage(
-			@PathParam(PATHPARAM_partiId_KEY) Integer partiId
-			,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
-			,Message message
+	//		@PathParam(PATHPARAM_partiId_KEY) Integer partiId
+	//		,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
+	//		,Message message
+			//		@PathParam(PATHPARAM_partiId_KEY) Integer partiId
+	//		,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
+	//		,Message message
+			Message message
+			,Session senderPeer
 	) throws ExecutionException, InterruptedException {
+		// Parti自体が登録されているか
+		if(null == partiPeers.get(message.getPartiId().getId())){
+			// Parti自体が登録されていない
+			// -> Partiをキーにセッション＝ユーザアカウントを新規登録
+			Map<Session, Integer> peerMap = Collections.synchronizedMap(new HashMap<Session, Integer>());
+			peerMap.put(senderPeer, message.getPostUserAccountId().getId());
+			partiPeers.put(message.getPartiId().getId(), peerMap);
+			senderPeer.getAsyncRemote().sendObject("{partiId: '"+message.getPartiId().getId()+"', greeting: 'hello again. you are 1st'}");
+			// Partiは登録されている。
+			// そこにセッション＝ユーザアカウントは登録されているか
+		}else if(null==partiPeers.get(message.getPartiId().getId())){
+			// セッション＝ユーザアカウントは登録されていない
+			// -> PartiをキーにMapを取得しそこに追加登録
+			partiPeers.get(message.getPartiId().getId()).put(senderPeer, message.getPostUserAccountId().getId());
+			senderPeer.getAsyncRemote().sendObject("{partiId: '"+message.getPartiId().getId()+"', greeting: 'hello again, there is/are member(s)'}");
+		}else{
+			// セッション＝ユーザアカウントはすでに登録されている
+			// ->何もしない
+		}
+		// Partiにセッション＝ユーザアカウントが登録されている状態である
 		logger.log(Level.INFO, new StringBuilder()
-				.append("[onMessage] PathParam(@)=")
-				.append(partiId)
 				.append("[onMessage] Message(@)=")
 				.append(message.getPartiId().getId())
-				.append("  | from PathParam(userAccount)=")
-				.append(accessUserAccountId)
 				.append("  | from Message(userAccount)=")
 				.append(message.getPostUserAccountId())
 				.append("  ... broadcasting [")
@@ -89,23 +112,22 @@ public class MessageEndpoint {
 				.toString());
 		messageFacade.create(message);
 		messageFacade.flush();
-		Map<Session, Integer> peers = partiPeers.get(message.getPartiId().getId());
-		for (Session peer : peers.keySet()){
+		for (Session peer : partiPeers.get(message.getPartiId().getId()).keySet()){
 			logger.log(Level.INFO, new StringBuilder()
 					.append("   --")
 					.append(peer.getId())
 					.toString());
-			peer.getAsyncRemote().sendObject(message);
-//			Future future = peer.getAsyncRemote().sendObject(message);
-//			try {
-//				if (null == future.get()) {
-					recordAccess(message, peers.get(peer));
-//				}
-//			} catch (ExecutionException ee) {
-//				//peers.remove(peer);
-//				ee.printStackTrace();
-//				throw ee;
-//			}
+//			peer.getAsyncRemote().sendObject(message);
+			Future future = peer.getAsyncRemote().sendObject(message);
+			try {
+				if (null == future.get()) {
+					recordAccess(message, message.getPostUserAccountId().getId());
+				}
+			} catch (ExecutionException ee) {
+				//peers.remove(peer);
+				ee.printStackTrace();
+				throw ee;
+			}
 		}
 		return null;
 	}
@@ -124,14 +146,22 @@ public class MessageEndpoint {
 				.append(" | ")
 				.append(peer.getId())
 				.toString());
+		// Parti自体が登録されているか
 		if(null == partiPeers.get(partiId)){
+			// Parti自体が登録されていない
+			// ->Partiをキーにセッション＝ユーザアカウントを新規登録
 			Map<Session, Integer> peerMap = Collections.synchronizedMap(new HashMap<Session, Integer>());
 			peerMap.put(peer, accessUserAccountId);
 			partiPeers.put(partiId, peerMap);
+			peer.getAsyncRemote().sendObject("{partiId: '"+partiId+"', greeting: 'you are 1st'}");
 		}else{
+			// Partiは登録されている
+			// onOpenなのでここにセッション＝ユーザアカウントは登録されていないのでそこまでは確認不要
+			// ->PartiをキーにMapを取得し、そこにセッション＝ユーザアカウントを追加
 			partiPeers.get(partiId).put(peer, accessUserAccountId);
+			peer.getAsyncRemote().sendObject("{partiId: '"+partiId+"', greeting: 'there is/are member(s)'}");
 		}
-		peer.getAsyncRemote().sendObject("{partiId: '"+partiId+"', greeting: 'hello'}");
+		// Partiにセッション＝ユーザアカウントが登録されている状態である
 
 		List<Message> unaccessedMessages
 				= messageFacade.findNotAccessedMessages(partiId, accessUserAccountId);
