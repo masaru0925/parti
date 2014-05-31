@@ -202,7 +202,12 @@ public class MessageEndpoint {
 			,@PathParam(PATHPARAM_accessUserAccountId_KEY) Integer accessUserAccountId
 			,Session peer){
 		logger.log(Level.INFO, new StringBuilder()
-				.append(" CLOSED | ")
+				.append(" CLOSED : ")
+				.append(" @=")
+				.append(partiId)
+				.append(" | userId=")
+				.append(accessUserAccountId)
+				.append(" | ")
 				.append(peer.getId())
 				.toString());
 		partiPeers.get(partiId).remove(peer);
