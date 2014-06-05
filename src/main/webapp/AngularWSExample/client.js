@@ -8,28 +8,51 @@ var app = angular.module('app', []);
 
 app.factory('ChatService', function() {
 	var service = {};
+	var timer;
+	var timeout = 5*1000; //5秒
+	var reconnect = false;
 
 	service.connect = function() {
-		if (service.ws) {
+		if (!reconnect && service.ws) {
 			return;
 		}
+		reconnect = false;
 
 		var ws = new WebSocket("ws://localhost:8080/parti/echo");
 
+		window.onbeforeunload = function() {
+    		ws.onclose = function () {}; // disable onclose handler first
+			ws.close();
+		};
+		var reserveReconnect = function(milisec){
+			return setTimeout(function(){
+				reconnect = true;
+				ws.close();
+				service.connect();
+			}, milisec);
+		};
+		ws.onclose = function(){
+			//timer = reserveReconnect(timeout);
+		};
+
 		ws.onopen = function() {
+			timer = reserveReconnect(timeout);
 			var date = new Date();
 			var time = date.getMinutes() + " " + date.getSeconds();
 			service.callback({msg: "Succeeded to open a connection", num: Math.floor(Math.random() * 100), time: time});
 		};
 
 		ws.onerror = function() {
+			timer = reserveReconnect(timeout);
+			var date = new Date();
 			var date = new Date();
 			var time = date.getMinutes() + " " + date.getSeconds();
 			service.callback({msg: "Failed to open a connection", num: Math.floor(Math.random() * 100), time: time});
 		};
 
 		ws.onmessage = function(message) {
-			console.log(JSON.stringify(message.data));
+			clearTimeout(timer);
+			timer = reserveReconnect(timeout);
 			service.callback(JSON.parse(message.data));
 			//service.callback(message.msg);
 		};
