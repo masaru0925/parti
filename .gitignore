@@ -2,3 +2,4 @@
 /src/main/java/entity/
 /target/
 /src/main/setup/
+/src/main/resources/META-INF/persistence.xml

@@ -9,7 +9,7 @@ var app = angular.module('app', []);
 app.factory('ChatService', function() {
 	var service = {};
 	var timer;
-	var timeout = 5*1000; //5秒
+	var timeout = 60*60*1000; //60秒x60=1H
 	var reconnect = false;
 
 	service.connect = function() {
@@ -51,6 +51,7 @@ app.factory('ChatService', function() {
 		};
 
 		ws.onmessage = function(message) {
+			console.log("ON_MESSAGE: "+message);
 			clearTimeout(timer);
 			timer = reserveReconnect(timeout);
 			service.callback(JSON.parse(message.data));
